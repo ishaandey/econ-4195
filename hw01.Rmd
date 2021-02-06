@@ -1,0 +1,113 @@
+---
+title: "hw1"
+author: "Ishaan Dey"
+date: "2/4/2021"
+output:
+  pdf_document: default
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=F, eval = T)
+```
+
+# 1. Import
+
+```{r}
+library(haven)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(cowplot)
+```
+
+```{r}
+flights <- read_dta("version10_RA.dta") %>% tibble()
+```
+
+# 2. Data Definitions
+
+-- market - the combination of origin and destination airports
+
+-- origin - the origin airport
+
+-- dest - the destination airport
+
+-- year - year when the travel occurred
+
+-- quarter - quarter when the travel occurred
+
+-- carrier - the carrier who transported the passengers (e.g. American
+-- AA)
+
+-- nonstopmiles mkt - nonstop distance in miles
+
+-- totalpassengers - passengers transported by the carrier
+
+-- medianmktfare mkt - median fare charged by the carrier
+
+-- meanmktfare mkt - mean fare charged by the carrier
+
+# 3.
+
+```{r}
+summary.stats <- function(x,...){
+  c(mean=mean(x, ...),
+  sd=sd(x, ...),
+  min=min(x, ...),
+  lower = quantile(x, ..., 1/4),
+  median=median(x, ...),
+  upper = quantile(x, ..., 3/4),
+  max=max(x,...))
+}
+
+num.cols <- c("passmeanmktfare_mkt","mktpass_tkcarrier","nonstopmiles_mkt")
+
+flights.summary <- sapply(select(flights, all_of(num.cols)), summary.stats) %>% as.data.frame()
+flights.summary 
+```
+
+We can see that for `passmeanmktfare_mkt` and `mktpass_tkcarrier`, there
+are many outliers that bring up the maximum significantly over the
+median. From the histograms, we see that the distribution of
+`nonstopmiles_mkt` is fairly even, and confirms lack of outliers.
+
+```{r}
+flights %>% 
+  select(all_of(num.cols)) %>%
+  gather() %>%
+  ggplot(aes(value)) + 
+  geom_histogram() +
+  facet_grid(~key, scales = 'free_x')
+```
+
+# 4
+
+We'll first map all the carriers to a group, and check its distribution
+
+```{r}
+carrier_groups = list(AA='Legacy',
+                      DL='Legacy',
+                      UA='Legacy',
+                      WN='LCC',
+                      B6='LCC')
+
+flights$carrier_group = flights$tkcarrier %>% recode(!!!carrier_groups, .default='Other')
+flights$carrier_group %>% table()
+```
+
+```{r}
+
+for (g in flights$carrier_group %>% unique()){
+  print(paste0('Carrier Group: ',g,'\n'))
+  group.stats <- sapply(flights %>% 
+           filter(carrier_group == g) %>% 
+           select(all_of(num.cols)), 
+         summary.stats) %>%
+    as.data.frame()
+  print(group.stats) 
+}
+```
